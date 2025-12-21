@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: HexagonTR/FlexPress-impose-vdp
-          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          token: ${{ secrets.GENERAL_TOKEN_REPO_WORKFLOW }}
           path: .
 
       - name: Install Node.js
