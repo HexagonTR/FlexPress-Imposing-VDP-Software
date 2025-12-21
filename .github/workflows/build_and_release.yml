@@ -28,10 +28,14 @@ jobs:
         shell: bash
         run: |
           CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
-          echo "Setting package version to: $CLEAN_VERSION"
-          # npm version is strict about semver and rejects 4 segments (e.g. 1.0.1.35)
-          # We manually replace the version in package.json using sed
-          sed -i "s/\"version\": \".*\"/\"version\": \"$CLEAN_VERSION\"/" package.json
+          # Convert 4-segment version (1.0.1.36) to SemVer (1.0.1-36)
+          if [[ "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            SEMVER_VERSION=$(echo "$CLEAN_VERSION" | sed 's/\.\([^.]*\)$/-\1/')
+          else
+            SEMVER_VERSION="$CLEAN_VERSION"
+          fi
+          echo "Setting package version to: $SEMVER_VERSION (original: $CLEAN_VERSION)"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$SEMVER_VERSION\"/" package.json
 
 
 
@@ -71,10 +75,15 @@ jobs:
         shell: bash
         run: |
           CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
-          echo "Setting package version to: $CLEAN_VERSION"
-          # npm version is strict about semver and rejects 4 segments (e.g. 1.0.1.35)
-          # We manually replace the version in package.json using sed
-          sed -i "s/\"version\": \".*\"/\"version\": \"$CLEAN_VERSION\"/" package.json
+          # Convert 4-segment version (1.0.1.36) to SemVer (1.0.1-36)
+          if [[ "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            SEMVER_VERSION=$(echo "$CLEAN_VERSION" | sed 's/\.\([^.]*\)$/-\1/')
+          else
+            SEMVER_VERSION="$CLEAN_VERSION"
+          fi
+          echo "Setting package version to: $SEMVER_VERSION (original: $CLEAN_VERSION)"
+          # Mac uses BSD sed, which requires an empty string for extension
+          sed -i '' "s/\"version\": \".*\"/\"version\": \"$SEMVER_VERSION\"/" package.json
 
 
 
