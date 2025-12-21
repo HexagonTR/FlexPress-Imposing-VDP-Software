@@ -29,7 +29,11 @@ jobs:
         run: |
           CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
           echo "Setting package version to: $CLEAN_VERSION"
-          npm version $CLEAN_VERSION --no-git-tag-version
+          # npm version is strict about semver and rejects 4 segments (e.g. 1.0.1.35)
+          # We manually replace the version in package.json using sed
+          sed -i "s/\"version\": \".*\"/\"version\": \"$CLEAN_VERSION\"/" package.json
+
+
 
       - name: Build Electron App (Windows)
         run: npm run electron:build:win
@@ -68,7 +72,11 @@ jobs:
         run: |
           CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
           echo "Setting package version to: $CLEAN_VERSION"
-          npm version $CLEAN_VERSION --no-git-tag-version
+          # npm version is strict about semver and rejects 4 segments (e.g. 1.0.1.35)
+          # We manually replace the version in package.json using sed
+          sed -i "s/\"version\": \".*\"/\"version\": \"$CLEAN_VERSION\"/" package.json
+
+
 
       - name: Build Electron App (Mac)
         run: npm run electron:build:mac
