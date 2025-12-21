@@ -1,0 +1,104 @@
+name: Build and Release (Public Runner)
+
+on:
+  repository_dispatch:
+    types: [trigger-build]
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Private Source Code
+        uses: actions/checkout@v4
+        with:
+          repository: HexagonTR/FlexPress-impose-vdp
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: .
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build React App
+        run: npm run build
+        env:
+          CI: false
+
+      - name: Build Electron App (Windows)
+        run: npm run electron:build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*.exe
+
+  # build-mac:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - name: Checkout Private Source Code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: HexagonTR/FlexPress-impose-vdp
+  #         token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+  #         path: .
+  #
+  #     - name: Install Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 18
+  #
+  #     - name: Install Dependencies
+  #       run: npm ci
+  #
+  #     - name: Build React App
+  #       run: npm run build
+  #       env:
+  #         CI: false
+  #
+  #     - name: Build Electron App (Mac)
+  #       run: npm run electron:build:mac
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - name: Upload Mac Artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: mac-build
+  #         path: dist/*.dmg
+
+  release:
+    needs: [build-win] # Add build-mac here when enabled
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: release-assets
+      
+      # - name: Download Mac Artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: mac-build
+      #     path: release-assets
+
+      - name: Create Release on Public Repo (Self)
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-assets/*
+          tag_name: ${{ github.event.client_payload.version }}
+          name: FlexPress ${{ github.event.client_payload.version }}
+          body: "Automated remote build from Private Repo. Version: ${{ github.event.client_payload.version }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
