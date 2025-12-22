@@ -23,19 +23,33 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # Bump Version in package.json to match the release tag
+      # Bump Version in package.json using Run Number as Patch Version
       - name: Bump Version
         shell: bash
+        env:
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
         run: |
-          CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
-          # Convert 4-segment version (1.0.1.36) to SemVer (1.0.1-36)
-          if [[ "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            SEMVER_VERSION=$(echo "$CLEAN_VERSION" | sed 's/\.\([^.]*\)$/-\1/')
-          else
-            SEMVER_VERSION="$CLEAN_VERSION"
-          fi
-          echo "Setting package version to: $SEMVER_VERSION (original: $CLEAN_VERSION)"
-          sed -i "s/\"version\": \".*\"/\"version\": \"$SEMVER_VERSION\"/" package.json
+          node -e "
+            const fs = require('fs');
+            try {
+              const version = process.env.PAYLOAD_VERSION.replace(/^v/, '');
+              const parts = version.split('.');
+              // Logic: v1.0.2.52 -> 1.0.52 (Take first two segments + last segment)
+              // If input is short (e.g. 1.0.52), it handles that too.
+              let newVersion = version;
+              if (parts.length >= 3) {
+                 newVersion = parts[0] + '.' + parts[1] + '.' + parts[parts.length - 1];
+              }
+              
+              console.log('Updating package.json to version: ' + newVersion);
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              pkg.version = newVersion;
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            } catch (err) {
+              console.error('Failed to bump version:', err);
+              process.exit(1);
+            }
+          "
 
 
 
@@ -73,22 +87,30 @@ jobs:
       # Bump Version for Mac as well
       - name: Bump Version
         shell: bash
+        env:
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
         run: |
-          # Original Version: v1.0.1.45 -> We want: 1.0.45
-          CLEAN_VERSION=$(echo "${{ github.event.client_payload.version }}" | sed 's/^v//')
-          
-          # Extract the Run Number (last segment)
-          RUN_NUMBER=$(echo "$CLEAN_VERSION" | awk -F. '{print $NF}')
-          
-          # Base Version (first two segments)
-          BASE_VERSION=$(echo "$CLEAN_VERSION" | awk -F. '{print $1"."$2}')
-          
-          # Construct New Version
-          NEW_VERSION="${BASE_VERSION}.${RUN_NUMBER}"
-          
-          echo "Setting package version to: $NEW_VERSION (Run Number: $RUN_NUMBER)"
-          # Mac uses BSD sed
-          sed -i '' "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" package.json
+          node -e "
+            const fs = require('fs');
+            try {
+              const version = process.env.PAYLOAD_VERSION.replace(/^v/, '');
+              const parts = version.split('.');
+              // Logic: v1.0.2.52 -> 1.0.52 (Take first two segments + last segment)
+              // If input is short (e.g. 1.0.52), it handles that too.
+              let newVersion = version;
+              if (parts.length >= 3) {
+                 newVersion = parts[0] + '.' + parts[1] + '.' + parts[parts.length - 1];
+              }
+              
+              console.log('Updating package.json to version: ' + newVersion);
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              pkg.version = newVersion;
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            } catch (err) {
+              console.error('Failed to bump version:', err);
+              process.exit(1);
+            }
+          "
 
 
 
