@@ -165,7 +165,7 @@ jobs:
           files: release-assets/*
           tag_name: ${{ steps.semver_tag.outputs.tag_name }}
           name: FlexPress ${{ steps.semver_tag.outputs.semver }}
-          body: "Automated remote build from Private Repo. Version: ${{ steps.semver_tag.outputs.semver }}"
+          body: "${{ github.event.client_payload.release_notes }}"
           draft: false
           prerelease: false
         env:
