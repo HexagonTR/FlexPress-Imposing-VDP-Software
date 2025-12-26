@@ -7,6 +7,10 @@ on:
 jobs:
   build-win:
     runs-on: windows-latest
+    if: |
+      contains(github.event.client_payload.commit_message, 'win push') || 
+      contains(github.event.client_payload.commit_message, 'win mac push') || 
+      (!contains(github.event.client_payload.commit_message, 'win push') && !contains(github.event.client_payload.commit_message, 'mac push'))
     steps:
       - name: Checkout Private Source Code
         uses: actions/checkout@v4
@@ -68,6 +72,10 @@ jobs:
 
   build-mac:
     runs-on: macos-latest
+    if: |
+      contains(github.event.client_payload.commit_message, 'mac push') || 
+      contains(github.event.client_payload.commit_message, 'win mac push') || 
+      (!contains(github.event.client_payload.commit_message, 'win push') && !contains(github.event.client_payload.commit_message, 'mac push'))
     steps:
       - name: Checkout Private Source Code
         uses: actions/checkout@v4
@@ -138,18 +146,21 @@ jobs:
 
   release:
     needs: [build-win, build-mac]
+    if: always() && (needs.build-win.result == 'success' || needs.build-mac.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
       discussions: write
     steps:
       - name: Download Windows Artifact
+        if: needs.build-win.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: windows-build
           path: release-assets
 
       - name: Download Mac Artifact
+        if: needs.build-mac.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: mac-build
