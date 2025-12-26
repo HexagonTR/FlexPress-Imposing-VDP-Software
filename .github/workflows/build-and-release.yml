@@ -92,7 +92,6 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # Bump Version for Mac as well
       - name: Bump Version
         shell: bash
         env:
@@ -103,13 +102,10 @@ jobs:
             try {
               const version = process.env.PAYLOAD_VERSION.replace(/^v/, '');
               const parts = version.split('.');
-              // Logic: v1.0.2.52 -> 1.0.52 (Take first two segments + last segment)
-              // If input is short (e.g. 1.0.52), it handles that too.
               let newVersion = version;
               if (parts.length >= 3) {
                  newVersion = parts[0] + '.' + parts[1] + '.' + parts[parts.length - 1];
               }
-              
               console.log('Updating package.json to version: ' + newVersion);
               const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
               pkg.version = newVersion;
@@ -125,10 +121,7 @@ jobs:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
         run: |
-          # Decode Provisioning Profile to File
           echo "$PROVISIONING_PROFILE_BASE64" | base64 -D -o embedded.provisionprofile
-          
-          # Decode Certificate to File
           echo "$BUILD_CERTIFICATE_BASE64" | base64 -D -o certificate.p12
 
       - name: Build Electron App (Mac)
@@ -137,15 +130,14 @@ jobs:
           DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-          # Signing Credentials (Pointing to Decoded Files)
-          CSC_LINK: certificate.p12
-          CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          
-          # Apple Credentials for Notarization/Signing
+          # --- KRİTİK GİRİŞ BİLGİLERİ (TEST ETTİĞİMİZ) ---
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # -----------------------------------------------
+
+          CSC_LINK: certificate.p12
+          CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
 
       - name: Upload Mac Artifact
         uses: actions/upload-artifact@v4
@@ -193,7 +185,8 @@ jobs:
       - name: Create Release on Public Repo (Self)
         uses: softprops/action-gh-release@v1
         with:
-          files: release-assets/*
+          # DÜZELTME: İki yıldız (**) ile alt klasörleri de kapsar
+          files: release-assets/**/*
           tag_name: ${{ steps.semver_tag.outputs.tag_name }}
           name: FlexPress ${{ steps.semver_tag.outputs.semver }}
           body: "${{ github.event.client_payload.release_notes }}"
