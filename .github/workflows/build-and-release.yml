@@ -131,10 +131,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
           # --- KRİTİK GİRİŞ BİLGİLERİ (TEST ETTİĞİMİZ) ---
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MANUAL_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MANUAL_APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MANUAL_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MANUAL_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # -----------------------------------------------
 
           CSC_LINK: certificate.p12
