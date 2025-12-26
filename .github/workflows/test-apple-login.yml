@@ -1,7 +1,7 @@
 name: Debug Apple Login
 
 on: 
-  workflow_dispatch: # Bu sayede butona basarak elle çalıştırabilirsiniz
+  workflow_dispatch:
 
 jobs:
   test-credentials:
@@ -23,16 +23,19 @@ jobs:
             exit 1
           fi
 
-      - name: Validate with Apple Notary Tool
+      - name: Validate with Apple Notary Tool (History Check)
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           echo "Apple sunucularına bağlanılıyor..."
+          echo "Komut çalıştırılıyor: xcrun notarytool history..."
           
-          # Apple'ın resmi aracıyla sadece giriş denemesi yapıyoruz (Upload yok)
-          xcrun notarytool store-credentials --validate \
+          # History komutu, kimlik doğrulaması başarısızsa net hata verir.
+          # Başarılıysa geçmiş işlemleri listeler (veya boş liste döner).
+          xcrun notarytool history \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM" \
-            --password "$APPLE_PASSWORD"
+            --password "$APPLE_PASSWORD" \
+            --verbose
