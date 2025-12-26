@@ -140,6 +140,11 @@ jobs:
           # Signing Credentials (Pointing to Decoded Files)
           CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          
+          # Apple Credentials for Notarization/Signing
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload Mac Artifact
         uses: actions/upload-artifact@v4
