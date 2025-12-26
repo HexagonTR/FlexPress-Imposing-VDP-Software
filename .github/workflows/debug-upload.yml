@@ -1,0 +1,35 @@
+name: Debug Real Upload
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  test-upload:
+    runs-on: macos-latest
+    steps:
+      - name: Create Dummy File
+        run: |
+          # Apple'a göndermek için sahte, içi boş ama geçerli yapıda bir zip oluşturalım
+          mkdir -p FakeApp.app/Contents
+          touch FakeApp.app/Contents/Info.plist
+          zip -r FakeApp.zip FakeApp.app
+          echo "✅ FakeApp.zip oluşturuldu."
+
+      - name: Attempt Real Upload (Debug Mode)
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "📡 Apple Notary Servisine dosya gönderiliyor..."
+          echo "Bu işlem başarısız olursa, gerçek ham hatayı göreceğiz."
+          
+          # notarytool submit komutu build işlemindeki yüklemenin aynısıdır.
+          # --wait parametresi ile sonucu bekleriz.
+          
+          xcrun notarytool submit FakeApp.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM" \
+            --password "$APPLE_PASSWORD" \
+            --wait \
+            --verbose
