@@ -1,0 +1,38 @@
+name: Debug Apple Login
+
+on: 
+  workflow_dispatch: # Bu sayede butona basarak elle çalıştırabilirsiniz
+
+jobs:
+  test-credentials:
+    runs-on: macos-latest
+    steps:
+      - name: Check Environment Variables (Güvenli Kontrol)
+        env:
+          MY_USER: ${{ secrets.APPLE_ID }}
+          MY_PASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MY_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "--- DEĞİŞKEN KONTROLÜ ---"
+          echo "Apple ID (Karakter Sayısı): ${#MY_USER}"
+          echo "Şifre (Karakter Sayısı): ${#MY_PASS}"
+          echo "Team ID (Değer): $MY_TEAM"
+          
+          if [ ${#MY_PASS} -lt 10 ]; then
+            echo "::error::HATA: Şifre GitHub Secret'tan çekilemedi veya çok kısa!"
+            exit 1
+          fi
+
+      - name: Validate with Apple Notary Tool
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Apple sunucularına bağlanılıyor..."
+          
+          # Apple'ın resmi aracıyla sadece giriş denemesi yapıyoruz (Upload yok)
+          xcrun notarytool store-credentials --validate \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM" \
+            --password "$APPLE_PASSWORD"
