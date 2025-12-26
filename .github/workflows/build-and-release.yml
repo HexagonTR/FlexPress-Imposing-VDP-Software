@@ -120,25 +120,30 @@ jobs:
             }
           "
 
-
-
-      - name: Decode Provisioning Profile
+      - name: Decode Signing Assets
         env:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
         run: |
+          # Decode Provisioning Profile to File
           echo "$PROVISIONING_PROFILE_BASE64" | base64 -D -o embedded.provisionprofile
+          
+          # Decode Certificate to File
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 -D -o certificate.p12
 
       - name: Build Electron App (Mac)
         run: npm run electron:build:mac
         env:
           DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Notarization Credentials (ZORUNLU)
+          
+          # Notarization Credentials (Used by scripts/notarize.js)
           NOTARIZE_APPLE_ID: ${{ secrets.APPLE_ID }}
           NOTARIZE_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           NOTARIZE_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Signing Credentials (User provided names mapped to Electron Builder vars)
-          CSC_LINK: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          
+          # Signing Credentials (Pointing to Decoded Files)
+          CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
 
       - name: Upload Mac Artifact
