@@ -127,7 +127,6 @@ jobs:
       - name: Build Electron App (Mac)
         run: npm run electron:build:mac
         env:
-          DEBUG: electron-builder
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
           # --- KRİTİK GİRİŞ BİLGİLERİ (TEST ETTİĞİMİZ) ---
