@@ -182,6 +182,48 @@ jobs:
           echo "tag_name=v$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "semver=$NEW_VERSION" >> $GITHUB_OUTPUT
 
+      - name: Generate Automated Release Notes
+        id: release_notes
+        shell: bash
+        run: |
+          MSG="${{ github.event.client_payload.commit_message }}"
+          
+          # Extract [NEW] tags
+          NEW_FEATURES=$(echo "$MSG" | grep -o '\[NEW\][^\[]*' | sed 's/\[NEW\]//g' | sed 's/^ *//;s/ *$//')
+          
+          # Extract [FIX] tags
+          FIXED_BUGS=$(echo "$MSG" | grep -o '\[FIX\][^\[]*' | sed 's/\[FIX\]//g' | sed 's/^ *//;s/ *$//')
+          
+          BODY=""
+          
+          if [ ! -z "$NEW_FEATURES" ]; then
+            BODY="### Yeni Fonksiyonlar\n"
+            while IFS= read -r line; do
+              BODY="${BODY}- ${line}\n"
+            done <<< "$NEW_FEATURES"
+            BODY="${BODY}\n"
+          fi
+          
+          if [ ! -z "$FIXED_BUGS" ]; then
+            BODY="${BODY}### Giderilen Hatalar\n"
+            while IFS= read -r line; do
+              BODY="${BODY}- ${line}\n"
+            done <<< "$FIXED_BUGS"
+            BODY="${BODY}\n"
+          fi
+          
+          # If no tags found, use the original payload release notes or a default
+          if [ -z "$BODY" ]; then
+            BODY="${{ github.event.client_payload.release_notes || 'Geliştirmeler ve hata düzeltmeleri yapıldı.' }}"
+          fi
+          
+          # Escape newlines for GitHub Output
+          BODY="${BODY//'%'/'%25'}"
+          BODY="${BODY//$'\n'/'%0A'}"
+          BODY="${BODY//$'\r'/'%0D'}"
+          
+          echo "body=$BODY" >> $GITHUB_OUTPUT
+
       - name: Create Release on Public Repo (Self)
         uses: softprops/action-gh-release@v1
         with:
@@ -189,7 +231,7 @@ jobs:
           files: release-assets/**/*
           tag_name: ${{ steps.semver_tag.outputs.tag_name }}
           name: FlexPress ${{ steps.semver_tag.outputs.semver }}
-          body: "${{ github.event.client_payload.release_notes }}"
+          body: ${{ steps.release_notes.outputs.body }}
           draft: false
           prerelease: false
         env:
