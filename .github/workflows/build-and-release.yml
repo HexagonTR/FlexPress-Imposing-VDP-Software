@@ -124,6 +124,14 @@ jobs:
           echo "$PROVISIONING_PROFILE_BASE64" | base64 -D -o embedded.provisionprofile
           echo "$BUILD_CERTIFICATE_BASE64" | base64 -D -o certificate.p12
 
+      - name: Restore Notarization ID
+        uses: actions/cache/restore@v4
+        with:
+          path: .notarization_id
+          key: notarize-id-${{ hashFiles('package.json') }}
+          restore-keys: |
+            notarize-id-
+
       - name: Build Electron App (Mac)
         run: npm run electron:build:mac
         env:
@@ -138,6 +146,13 @@ jobs:
 
           CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ secrets.P12_PASSWORD }}
+
+      - name: Save Notarization ID
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .notarization_id
+          key: notarize-id-${{ hashFiles('package.json') }}
 
       - name: Upload Mac Artifact
         uses: actions/upload-artifact@v4
