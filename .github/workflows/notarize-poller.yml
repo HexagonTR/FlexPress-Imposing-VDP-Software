@@ -1,0 +1,81 @@
+name: Apple Notarization Poller
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Every 2 hours
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  check:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      # --- Centralized Secrets ---
+      # Using format to help silence some IDE lints, though they may still appear at job level
+      MANUAL_APPLE_ID: ${{ secrets.APPLE_ID }}
+      MANUAL_APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      MANUAL_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      MANUAL_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GENERAL_TOKEN_REPO_WORKFLOW: ${{ secrets.GENERAL_TOKEN_REPO_WORKFLOW }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Restore Notarization ID
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        with:
+          path: .notarization_id
+          key: notarize-id- # Base key
+          restore-keys: |
+            notarize-id-
+
+      - name: Check Status
+        id: status-check
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          OUT=$(node scripts/check-notarize.js)
+          echo "$OUT"
+          if echo "$OUT" | grep -q "NOTARIZATION_ACCEPTED=true"; then
+            echo "accepted=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Late Stapling (Download, Staple, Upload)
+        if: steps.status-check.outputs.accepted == 'true'
+        run: |
+          TAG=$(cat .notarization_tag 2>/dev/null || echo "")
+          if [ -z "$TAG" ]; then
+            echo "❌ No tag metadata found. Cannot staple."
+            exit 1
+          fi
+          
+          echo "📦 Processing Release: $TAG"
+          
+          # Download all assets from this release
+          gh release download "$TAG" --dir dist --pattern "*.dmg"
+          
+          DMG_PATH=$(ls dist/*.dmg | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+             echo "❌ No DMG found in release."
+             exit 1
+          fi
+          
+          echo "📜 Stapling $DMG_PATH..."
+          xcrun stapler staple "$DMG_PATH"
+          
+          echo "🚀 Re-uploading stapled asset..."
+          gh release upload "$TAG" "$DMG_PATH" --clobber
+          
+          echo "✅ Late Stapling completed successfully."
+          rm .notarization_id .notarization_tag || true
+
+      - name: Save Cache State
+        if: always() && steps.status-check.outputs.accepted == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .notarization_id
+            .notarization_tag
+          key: notarize-id-${{ github.run_id }} # Clear cache after success

@@ -17,7 +17,38 @@ jobs:
         with:
           repository: HexagonTR/FlexPress-impose-vdp
           token: ${{ secrets.GENERAL_TOKEN_REPO_WORKFLOW }}
-          path: .
+          path: source-code
+
+      - name: Sync Workflows and Scripts to Public Repo
+        shell: bash
+        run: |
+          # Bu adım public repoda çalıştığı için ücretsizdir.
+          # Private repodaki güncel dosyaları public repoya yansıtır.
+          mkdir -p .github/workflows
+          mkdir -p scripts
+          
+          cp source-code/FULL_PUBLIC_WORKFLOW_WITH_MAC.yml .github/workflows/build-and-release.yml
+          cp source-code/.github/workflows/notarize-poller.yml .github/workflows/notarize-poller.yml
+          cp source-code/scripts/check-notarize.js scripts/check-notarize.js
+          
+          git config user.name "FlexPress Automator"
+          git config user.email "automator@flexpress.app"
+          
+          git add .github/workflows/*.yml scripts/*.js
+          
+          if git diff --staged --quiet; then
+            echo "No workflow/script changes to sync."
+          else
+            echo "Syncing structural files to public repo..."
+            git commit -m "Auto-sync structure from private source [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Move Source to Root
+        run: |
+          mv source-code/* .
+          mv source-code/.* . 2>/dev/null || true
+          rm -rf source-code
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -150,14 +181,22 @@ jobs:
           CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ env.P12_PASSWORD }}
 
-      - name: Save Notarization ID
+      - name: Prepare Cache Files
+        if: always()
+        shell: bash
+        run: |
+          # Cache action'ın hata vermemesi için dosyalar yoksa boş oluşturulur
+          touch .notarization_id .notarization_tag
+          echo "Cache preparation complete."
+      
+      - name: Save Notarization Metadata to Cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: |
             .notarization_id
             .notarization_tag
-          key: notarize-id-${{ hashFiles('package.json') }}
+          key: notarize-id-${{ hashFiles('package.json', 'main.js') }}-${{ github.run_id }}
 
       - name: Upload Mac Artifact
         uses: actions/upload-artifact@v4
@@ -205,44 +244,45 @@ jobs:
       - name: Generate Automated Release Notes
         id: release_notes
         shell: bash
+        env:
+          MSG: ${{ github.event.client_payload.commit_message }}
+          NOTES: ${{ github.event.client_payload.release_notes }}
         run: |
-          MSG="${{ github.event.client_payload.commit_message }}"
+          # grep -o döngüsü hata vermesin diye || true ekliyoruz
+          NEW_FEATURES=$(echo "$MSG" | grep -o '\[NEW\][^\[]*' | sed 's/\[NEW\]//g' | sed 's/^ *//;s/ *$//' || true)
+          FIXED_BUGS=$(echo "$MSG" | grep -o '\[FIX\][^\[]*' | sed 's/\[FIX\]//g' | sed 's/^ *//;s/ *$//' || true)
           
-          # Extract [NEW] tags
-          NEW_FEATURES=$(echo "$MSG" | grep -o '\[NEW\][^\[]*' | sed 's/\[NEW\]//g' | sed 's/^ *//;s/ *$//')
-          
-          # Extract [FIX] tags
-          FIXED_BUGS=$(echo "$MSG" | grep -o '\[FIX\][^\[]*' | sed 's/\[FIX\]//g' | sed 's/^ *//;s/ *$//')
-          
-          BODY=""
+          FINAL_BODY=""
           
           if [ ! -z "$NEW_FEATURES" ]; then
-            BODY="### Yeni Fonksiyonlar\n"
+            FINAL_BODY="${FINAL_BODY}### Yeni Fonksiyonlar\n"
             while IFS= read -r line; do
-              BODY="${BODY}- ${line}\n"
+              if [ ! -z "$line" ]; then
+                FINAL_BODY="${FINAL_BODY}- ${line}\n"
+              fi
             done <<< "$NEW_FEATURES"
-            BODY="${BODY}\n"
+            FINAL_BODY="${FINAL_BODY}\n"
           fi
           
           if [ ! -z "$FIXED_BUGS" ]; then
-            BODY="${BODY}### Giderilen Hatalar\n"
+            FINAL_BODY="${FINAL_BODY}### Giderilen Hatalar\n"
             while IFS= read -r line; do
-              BODY="${BODY}- ${line}\n"
+              if [ ! -z "$line" ]; then
+                FINAL_BODY="${FINAL_BODY}- ${line}\n"
+              fi
             done <<< "$FIXED_BUGS"
-            BODY="${BODY}\n"
+            FINAL_BODY="${FINAL_BODY}\n"
           fi
           
-          # If no tags found, use the original payload release notes or a default
-          if [ -z "$BODY" ]; then
-            BODY="${{ github.event.client_payload.release_notes || 'Geliştirmeler ve hata düzeltmeleri yapıldı.' }}"
+          # Eğer etiket bulunamadıysa manuel notu veya varsayılanı kullan
+          if [ -z "$FINAL_BODY" ]; then
+            FINAL_BODY="${NOTES:-'Geliştirmeler ve hata düzeltmeleri yapıldı.'}"
           fi
           
-          # Escape newlines for GitHub Output
-          BODY="${BODY//'%'/'%25'}"
-          BODY="${BODY//$'\n'/'%0A'}"
-          BODY="${BODY//$'\r'/'%0D'}"
-          
-          echo "body=$BODY" >> $GITHUB_OUTPUT
+          # GITHUB_OUTPUT için multiline desteği (HEREDOC)
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$FINAL_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release on Public Repo (Self)
         uses: softprops/action-gh-release@v1
