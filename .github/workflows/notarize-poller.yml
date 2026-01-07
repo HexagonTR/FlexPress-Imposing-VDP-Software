@@ -36,7 +36,8 @@ jobs:
 
       - name: Check Status
         id: status-check
-        if: steps.cache-restore.outputs.cache-hit == 'true'
+        # cache-hit restore-keys ile her zaman true dönmeyebilir, dosya varlığını kontrol edelim
+        if: hashFiles('.notarization_id') != ''
         run: |
           OUT=$(node scripts/check-notarize.js)
           echo "$OUT"
@@ -71,7 +72,8 @@ jobs:
           gh release upload "$TAG" "$DMG_PATH" --clobber
           
           echo "✅ Late Stapling completed successfully."
-          rm .notarization_id .notarization_tag || true
+          # Temizlik: Dosyaları silelim ki cache tekrar dolmasın
+          rm -f .notarization_id .notarization_tag || true
 
       - name: Save Cache State
         if: always() && steps.status-check.outputs.accepted == 'true'
