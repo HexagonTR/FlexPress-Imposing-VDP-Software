@@ -27,8 +27,10 @@ jobs:
         uses: actions/cache/restore@v4
         id: cache-restore
         with:
-          path: .notarization_id
-          key: notarize-id- # Base key
+          path: |
+            .notarization_id
+            .notarization_tag
+          key: notarize-id-
           restore-keys: |
             notarize-id-
 
