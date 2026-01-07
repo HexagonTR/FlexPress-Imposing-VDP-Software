@@ -19,6 +19,10 @@ async function checkNotarize() {
     }
 
     const submissionId = fs.readFileSync(idFilePath, 'utf8').trim();
+    if (!submissionId) {
+        console.log("ℹ️ Notarization ID is empty. Skipping.");
+        process.exit(0);
+    }
     console.log(`🔍 Checking status for Submission ID: ${submissionId}`);
 
     try {
