@@ -27,7 +27,7 @@ async function checkNotarize() {
 
     try {
         const args = [
-            'notarytool', 'wait',
+            'notarytool', 'info',
             submissionId,
             '--apple-id', appleId,
             '--password', appleIdPassword,
@@ -40,6 +40,9 @@ async function checkNotarize() {
 
         if (output.includes('status: Accepted')) {
             console.log("✅ NOTARIZATION_ACCEPTED=true");
+            if (process.env.GITHUB_OUTPUT) {
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, `accepted=true\n`);
+            }
             process.exit(0);
         } else if (output.includes('status: In Progress') || output.includes('status: Processing')) {
             console.log("⏳ STILL_PROCESSING=true");

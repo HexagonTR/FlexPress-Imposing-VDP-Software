@@ -39,11 +39,7 @@ jobs:
         # cache-hit restore-keys ile her zaman true dönmeyebilir, dosya varlığını kontrol edelim
         if: hashFiles('.notarization_id') != ''
         run: |
-          OUT=$(node scripts/check-notarize.js)
-          echo "$OUT"
-          if echo "$OUT" | grep -q "NOTARIZATION_ACCEPTED=true"; then
-            echo "accepted=true" >> $GITHUB_OUTPUT
-          fi
+          node scripts/check-notarize.js
 
       - name: Late Stapling (Download, Staple, Upload)
         if: steps.status-check.outputs.accepted == 'true'
