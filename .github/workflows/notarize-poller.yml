@@ -30,8 +30,9 @@ jobs:
           path: |
             .notarization_id
             .notarization_tag
-          key: notarize-id-
+          key: notarize-ready-
           restore-keys: |
+            notarize-ready-
             notarize-id-
 
       - name: Check Status
@@ -68,8 +69,8 @@ jobs:
           gh release upload "$TAG" "$DMG_PATH" --clobber
           
           echo "✅ Late Stapling completed successfully."
-          # Temizlik: Dosyaları silelim ki cache tekrar dolmasın
-          rm -f .notarization_id .notarization_tag || true
+          # Temizlik: Dosyaları boşaltalım ki bir sonraki poller çalışmasın
+          touch .notarization_id .notarization_tag
 
       - name: Save Cache State
         if: always() && steps.status-check.outputs.accepted == 'true'
@@ -78,4 +79,4 @@ jobs:
           path: |
             .notarization_id
             .notarization_tag
-          key: notarize-id-${{ github.run_id }} # Clear cache after success
+          key: notarize-ready-${{ github.run_id }} # Winning key to clear state

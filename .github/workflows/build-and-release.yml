@@ -221,6 +221,16 @@ jobs:
             .notarization_tag
           key: notarize-id-${{ hashFiles('package.json', 'main.js') }}-${{ github.run_id }}
 
+      - name: Upload Notarization Meta for Release Job
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarization-meta
+          path: |
+            .notarization_id
+            .notarization_tag
+          retention-days: 1
+
       - name: Upload Mac Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -251,6 +261,13 @@ jobs:
         with:
           name: mac-build
           path: release-assets
+
+      - name: Download Notarization Metadata
+        if: needs.build-mac.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: notarization-meta
+          path: .
 
       - name: Calculate SemVer Tag
         id: semver_tag
@@ -326,8 +343,11 @@ jobs:
           echo "${{ steps.semver_tag.outputs.tag_name }}" > .notarization_tag
           echo "Saved tag for late stapling: $(cat .notarization_tag)"
 
-      - name: Save Tag Meta to Cache
+      - name: Save Complete Meta to Cache for Poller
+        if: always()
         uses: actions/cache/save@v4
         with:
-          path: .notarization_tag
-          key: notarize-tag-${{ github.run_id }}
+          path: |
+            .notarization_id
+            .notarization_tag
+          key: notarize-ready-${{ github.run_id }}
