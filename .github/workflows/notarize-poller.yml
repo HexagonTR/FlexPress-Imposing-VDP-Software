@@ -72,7 +72,8 @@ jobs:
           
           echo "✅ Late Stapling completed successfully."
           # Temizlik: Dosyaları boşaltalım ki bir sonraki poller çalışmasın
-          touch .notarization_id .notarization_tag
+          printf '' > .notarization_id
+          printf '' > .notarization_tag
 
       - name: Save Cache State
         if: always() && steps.status-check.outputs.accepted == 'true'

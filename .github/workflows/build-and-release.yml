@@ -193,8 +193,6 @@ jobs:
             .notarization_id
             .notarization_tag
           key: notarize-id-${{ hashFiles('package.json') }}
-          restore-keys: |
-            notarize-id-
 
       - name: Build Electron App (Mac)
         run: npm run electron:build:mac
