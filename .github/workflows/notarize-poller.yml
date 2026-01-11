@@ -2,7 +2,9 @@ name: Apple Notarization Poller
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # Every 2 hours
+    - cron: '0 */4 * * *' # Every 4 hours
+  repository_dispatch:
+    types: [trigger-poller]
   workflow_dispatch: # Manual trigger
 
 jobs:

@@ -204,14 +204,6 @@ jobs:
           CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ env.P12_PASSWORD }}
 
-      - name: Prepare Cache Files
-        if: always()
-        shell: bash
-        run: |
-          # Cache action'ın hata vermemesi için dosyalar yoksa boş oluşturulur
-          touch .notarization_id .notarization_tag
-          echo "Cache preparation complete."
-      
       - name: Save Notarization Metadata to Cache
         if: always()
         uses: actions/cache/save@v4
@@ -221,14 +213,25 @@ jobs:
             .notarization_tag
           key: notarize-id-${{ hashFiles('package.json', 'main.js') }}-${{ github.run_id }}
 
+      - name: Prepare Notarization Meta Folder
+        if: always()
+        shell: bash
+        run: |
+          # Create a dedicated directory for artifacts to avoid dotfile issues in some environments
+          mkdir -p notarization-metadata
+          # Ensure files exist (either from notarize.js or touch)
+          touch .notarization_id .notarization_tag
+          cp .notarization_id notarization-metadata/id.txt
+          cp .notarization_tag notarization-metadata/tag.txt
+          echo "Metadata directory prepared."
+
       - name: Upload Notarization Meta for Release Job
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: notarization-meta
-          path: |
-            .notarization_id
-            .notarization_tag
+          path: notarization-metadata/
+          if-no-files-found: error
           retention-days: 1
 
       - name: Upload Mac Artifact
@@ -267,7 +270,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: notarization-meta
-          path: .
+          path: notarization-metadata
+
+      - name: Restore Notarization Metadata Files
+        if: needs.build-mac.result == 'success'
+        shell: bash
+        run: |
+          if [ -d "notarization-metadata" ]; then
+            cp notarization-metadata/id.txt .notarization_id
+            cp notarization-metadata/tag.txt .notarization_tag
+            echo "Metadata files restored from artifact."
+          fi
 
       - name: Calculate SemVer Tag
         id: semver_tag
@@ -344,10 +357,22 @@ jobs:
           echo "Saved tag for late stapling: $(cat .notarization_tag)"
 
       - name: Save Complete Meta to Cache for Poller
-        if: always()
+        if: always() && needs.build-mac.result == 'success'
         uses: actions/cache/save@v4
         with:
           path: |
             .notarization_id
             .notarization_tag
           key: notarize-ready-${{ github.run_id }}
+
+      - name: Trigger Poller Immediately
+        if: always() && needs.build-mac.result == 'success'
+        shell: bash
+        run: |
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type":"trigger-poller"}'
