@@ -203,6 +203,22 @@ jobs:
           MANUAL_APPLE_ID_PASSWORD: ${{ env.MANUAL_APPLE_APP_SPECIFIC_PASSWORD }}
           CSC_LINK: certificate.p12
           CSC_KEY_PASSWORD: ${{ env.P12_PASSWORD }}
+          SKIP_NOTARIZE: 'true'
+
+      - name: Submit DMG for Notarization
+        shell: bash
+        run: |
+          DMG_PATH=$(ls dist/*.dmg | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+             echo "❌ No DMG found to notarize."
+             exit 1
+          fi
+          echo "🚀 Submitting $DMG_PATH for notarization..."
+          node scripts/notarize.js "$DMG_PATH"
+        env:
+          MANUAL_APPLE_ID: ${{ env.MANUAL_APPLE_ID }}
+          MANUAL_APPLE_APP_SPECIFIC_PASSWORD: ${{ env.MANUAL_APPLE_APP_SPECIFIC_PASSWORD }}
+          MANUAL_APPLE_TEAM_ID: ${{ env.MANUAL_APPLE_TEAM_ID }}
 
       - name: Save Notarization Metadata to Cache
         if: always()
