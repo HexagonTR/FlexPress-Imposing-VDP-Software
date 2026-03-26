@@ -8,13 +8,41 @@ on:
   workflow_dispatch: # Manual trigger
 
 jobs:
-  check:
+  pre-check:
+    runs-on: ubuntu-latest
+    outputs:
+      has_id: ${{ steps.check.outputs.has_id }}
+    steps:
+      - name: Restore Notarization ID
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        with:
+          path: |
+            .notarization_id
+            .notarization_tag
+          key: notarize-ready-
+          restore-keys: |
+            notarize-ready-
+            notarize-id-
+
+      - name: Check for pending ID
+        id: check
+        run: |
+          if [ -f .notarization_id ] && [ -s .notarization_id ]; then
+            echo "has_id=true" >> $GITHUB_OUTPUT
+            echo "✅ Pending notarization found."
+          else
+            echo "has_id=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No pending notarization."
+          fi
+
+  poll:
+    needs: pre-check
+    if: ${{ needs.pre-check.outputs.has_id == 'true' }}
     runs-on: macos-latest
     permissions:
       contents: write
     env:
-      # --- Centralized Secrets ---
-      # Using format to help silence some IDE lints, though they may still appear at job level
       MANUAL_APPLE_ID: ${{ secrets.APPLE_ID }}
       MANUAL_APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       MANUAL_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
@@ -39,13 +67,11 @@ jobs:
 
       - name: Check Status
         id: status-check
-        # cache-hit restore-keys ile her zaman true dönmeyebilir, dosya varlığını kontrol edelim
-        if: hashFiles('.notarization_id') != ''
         run: |
           node scripts/check-notarize.js
 
       - name: Late Stapling (Download, Staple, Upload)
-        if: steps.status-check.outputs.accepted == 'true'
+        if: ${{ steps.status-check.outputs.accepted == 'true' }}
         run: |
           TAG=$(cat .notarization_tag 2>/dev/null || echo "")
           if [ -z "$TAG" ]; then
@@ -54,8 +80,7 @@ jobs:
           fi
           
           echo "📦 Processing Release: $TAG"
-          
-          # Download all assets from this release
+          mkdir -p dist
           gh release download "$TAG" --dir dist --pattern "*.dmg"
           
           DMG_PATH=$(ls dist/*.dmg | head -n 1)
@@ -70,16 +95,14 @@ jobs:
           echo "🚀 Re-uploading stapled asset..."
           gh release upload "$TAG" "$DMG_PATH" --clobber
           
-          echo "✅ Late Stapling completed successfully."
-          # Temizlik: Dosyaları boşaltalım ki bir sonraki poller çalışmasın
           printf '' > .notarization_id
           printf '' > .notarization_tag
 
       - name: Save Cache State
-        if: always() && steps.status-check.outputs.accepted == 'true'
+        if: ${{ always() && steps.status-check.outputs.accepted == 'true' }}
         uses: actions/cache/save@v4
         with:
           path: |
             .notarization_id
             .notarization_tag
-          key: notarize-ready-${{ github.run_id }} # Winning key to clear state
+          key: notarize-ready-${{ github.run_id }}
